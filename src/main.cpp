@@ -12,7 +12,7 @@
 
 using namespace vex;
 
-//Motors
+//Motors & Sensors
   motor leftMotor = motor(PORT10, false); //Swap ports
   motor rightMotor = motor(PORT1, true); //This part is being retarted and not changing when I change the bool
 
@@ -25,6 +25,9 @@ using namespace vex;
   motor intakeRight = motor(PORT11, false);
 
   motor lift = motor(PORT16, true);
+
+
+  inertial inertialSensor = inertial(1); //[What does 1 mean]
 //
 
 competition Competition;
@@ -39,7 +42,7 @@ float wheelSpan = 21.6812; //cm
 float spanCircumference = wheelSpan * 3.14159265359; //cm  68.113
 float wheelWidth = 10.16; //cm
 float widthCircumference = wheelWidth * 3.14159265359; //cm  31.918
-float ratio = spanCircumference / widthCircumference; //Converts wheel rotations to robot rotations when *
+//float ratio = spanCircumference / widthCircumference; //Converts wheel rotations to robot rotations when *
 //Ratio is 2.133
 
 //180 * wheelSpan * 3.14159265359
@@ -48,33 +51,26 @@ float ratio = spanCircumference / widthCircumference; //Converts wheel rotations
 //Figure out difference between leftMotor speed and rightMotor
 void turnDeg( int degrees, double miliseconds ) {
   double startTime = vexSystemTimeGet(); //verified ms
+  inertialSensor.resetRotation();
   leftMotor.resetRotation();
   rightMotor.resetRotation();
 
   Controller.Screen.clearScreen();
 
   float Kp = 0.3;
-  float leeway = 2;
-  while (vexSystemTimeGet() < startTime + miliseconds &&
-    !(leftMotor.rotation(deg) < degrees * ratio * 2 + leeway &&
-    leftMotor.rotation(deg) > degrees * ratio * 2 - leeway &
-    rightMotor.rotation(deg) < -degrees * ratio * 2 + leeway &&
-    rightMotor.rotation(deg) > -degrees * ratio * 2 - leeway)) {
-    double errorL = degrees * ratio * 2 - leftMotor.rotation(deg);
-    double errorR = degrees * ratio * 2 + rightMotor.rotation(deg);
+  float leeway = 1;
+  while (vexSystemTimeGet() < startTime + miliseconds && !(
+    inertialSensor.rotation() < degrees + leeway &&
+    inertialSensor.rotation() > degrees - leeway)) {
+    double error = degrees - inertialSensor.rotation();
 
-    double difference = errorL - errorR; //+ = r+; - = l+
+    double difference = leftMotor.rotation(deg) + rightMotor.rotation(deg); //- = r+; + = l+ NO
 
-    //180 = 200
+    if (error > 112) error = 112;
+    if (error < -112) error = -112;
 
-    if (errorL > 112) errorL = 112;
-    if (errorL < -112) errorL = -112;
-
-    if (errorR > 112) errorR = 112;
-    if (errorR < -112) errorR = -112;
-
-    leftMotor.spin(directionType::fwd, errorL * Kp + difference / 2, rpm);
-    rightMotor.spin(directionType::rev, errorR * Kp - difference / 2, rpm);
+    leftMotor.spin(directionType::fwd, error * Kp - difference / 2, rpm);
+    rightMotor.spin(directionType::rev, error * Kp + difference / 2, rpm);
   }
 }
 void move( int distance, double miliseconds ) {
@@ -118,7 +114,7 @@ void autonomous(void) {
     default:
       break;
     case 0:
-      turnDeg(180, 5000);
+      turnDeg(180, 100000);
       break;
     case 1: //BLY / RLY
       //10.5s
