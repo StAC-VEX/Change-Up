@@ -29,15 +29,20 @@ class Vector3f {
     };
 };
 
+class Autonomous {
+  public:
+    float globalSpeed = 120;
+    
+    float wheelHeight = 10.16;
+    float wheelCircumference = wheelHeight * 3.14159265359;
+};
+Autonomous auton = *new class Autonomous();
+
 void pre_auton(void) {
   vexcodeInit();
   inertialSensor.calibrate();
 }
 
-float wheelSpan = 21.6812;
-float spanCircumference = wheelSpan * 3.14159265359;
-float wheelWidth = 10.16;
-float widthCircumference = wheelWidth * 3.14159265359;
 void turnDeg( int degrees, double miliseconds ) {
   double startTime = vexSystemTimeGet(); //verified ms
   inertialSensor.resetRotation();
@@ -70,10 +75,10 @@ void move( int distance, double miliseconds ) {
   float startDeg = leftMotor.rotation(deg);
 
   float Kp = 0.2;
-  while (vexSystemTimeGet() < startTime + miliseconds && !(leftMotor.rotation(deg) - startDeg < distance / widthCircumference * 360 * 2 + 2 && leftMotor.rotation(deg) - startDeg > distance / widthCircumference * 360* 2 - 2)) {
+  while (vexSystemTimeGet() < startTime + miliseconds && !(leftMotor.rotation(deg) - startDeg < distance / auton.wheelCircumference * 360 * 2 + 2 && leftMotor.rotation(deg) - startDeg > distance / auton.wheelCircumference * 360* 2 - 2)) {
     Vector3f accel = *new class Vector3f(inertialSensor.acceleration(axisType::xaxis), inertialSensor.acceleration(axisType::yaxis), inertialSensor.acceleration(axisType::zaxis));
     //Find out wtf * means
-    double error = distance / widthCircumference * 360 * 2 - (leftMotor.rotation(deg) - startDeg);
+    double error = distance / auton.wheelCircumference * 360 * 2 - (leftMotor.rotation(deg) - startDeg);
     double speed = error*Kp; //Kp is the constant
 
     if (speed > 112) speed = 112;
@@ -102,30 +107,29 @@ void intake( float time, int speed ) {
       Y: Start facing mid ready to score
     
 */
-int globalSpeed = 120;
 void autonomous(void) {
   switch (0) {
     case 999:
     default:
       break;
     case 777:
-      intake(1000, -globalSpeed);
-      intake(5000, globalSpeed);
+      intake(1000, auton.globalSpeed);
+      intake(5000, auton.globalSpeed);
       break;
     case 0:
       turnDeg(180, 100000);
       break;
     case 1: //BLY / RLY
       //10.5s
-      intake(5000, globalSpeed);
+      intake(5000, auton.globalSpeed);
       move(-10, 500);
       turnDeg(90, 5000);
       move(30, 300);
       turnDeg(90, 5000);
       move(110, 5000);
-      intake(5000, globalSpeed);
+      intake(5000, auton.globalSpeed);
       turnDeg(45, 5000);
-      intake(5000, globalSpeed);
+      intake(5000, auton.globalSpeed);
       break;
     case 2: //BLN / RLN
       /*
@@ -148,10 +152,10 @@ void autonomous(void) {
       move(30, 5000);
       turnDeg(-90, 5000);
       move(30, 5000);
-      intake(5000, globalSpeed);
+      intake(5000, auton.globalSpeed);
       turnDeg(-45, 5000);
       move(10, 5000);
-      intake(5000, globalSpeed);
+      intake(5000, auton.globalSpeed);
       move(-10, 5000);
       turnDeg(135, 5000);
       move(60, 5000);
@@ -159,7 +163,7 @@ void autonomous(void) {
       move(15, 5000);
       turnDeg(90, 5000);
       move(45, 5000);
-      intake(5000, globalSpeed);
+      intake(5000, auton.globalSpeed);
       break;
     case 3: //BRY / RRY
       /*
@@ -174,15 +178,15 @@ void autonomous(void) {
         score
       */
       //10.5s
-      intake(1500, globalSpeed);
+      intake(1500, auton.globalSpeed);
       move(-10, 250);
       turnDeg(-90, 1500);
       move(30, 300);
       turnDeg(-90, 1500);
       move(110, 1500);
-      intake(1500, globalSpeed);
+      intake(1500, auton.globalSpeed);
       turnDeg(-45, 500);
-      intake(1500, globalSpeed);
+      intake(1500, auton.globalSpeed);
       break;
     case 4: //BRN / RRN
       /*
@@ -205,10 +209,10 @@ void autonomous(void) {
       move(30, 5000);
       turnDeg(90, 5000);
       move(30, 5000);
-      intake(5000, globalSpeed);
+      intake(5000, auton.globalSpeed);
       turnDeg(45, 5000);
       move(10, 5000);
-      intake(5000, globalSpeed);
+      intake(5000, auton.globalSpeed);
       move(-10, 5000);
       turnDeg(-135, 5000);
       move(60, 5000);
@@ -216,7 +220,7 @@ void autonomous(void) {
       move(15, 5000);
       turnDeg(-90, 5000);
       move(45, 5000);
-      intake(5000, globalSpeed);
+      intake(5000, auton.globalSpeed);
       break;
   }
 }
