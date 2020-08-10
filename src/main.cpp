@@ -32,7 +32,68 @@ class Vector3f {
 class Autonomous {
   public:
     float globalSpeed = 120;
+
+    void turnDeg( int degrees, double miliseconds ) {
+      double startTime = vexSystemTimeGet(); //verified ms
+      inertialSensor.resetRotation();
+      leftMotor.resetRotation();
+      rightMotor.resetRotation();
+
+      float Kp = 0.7;
+      float leeway = 1;
+      waitUntil(!inertialSensor.isCalibrating());
+      while (vexSystemTimeGet() < startTime + miliseconds && !(
+        inertialSensor.rotation() < degrees + leeway &&
+        inertialSensor.rotation() > degrees - leeway)) {
+        
+        double error = degrees - inertialSensor.rotation(deg);
+        double difference = leftMotor.rotation(deg) + rightMotor.rotation(deg); //- = r+; + = l+ NO
+
+        //Min
+        if (error > 112) error = 112;
+        if (error < -112) error = -112;
+        //Max
+        if (error < 24 && error > 0) error = 24;
+        if (error > -24 && error < 0) error = -24;
+
+        leftMotor.spin(directionType::fwd, error * Kp - difference, rpm);
+        rightMotor.spin(directionType::rev, error * Kp + difference, rpm);
+      }
     
+    }
+
+    void move( int distance, double miliseconds ) {
+      double startTime = vexSystemTimeGet(); //verified ms
+      float startDeg = leftMotor.rotation(deg);
+
+      float Kp = 0.2;
+      while (vexSystemTimeGet() < startTime + miliseconds && !(leftMotor.rotation(deg) - startDeg < distance / wheelCircumference * 360 * 2 + 2 && leftMotor.rotation(deg) - startDeg > distance / wheelCircumference * 360* 2 - 2)) {
+        Vector3f accel = *new class Vector3f(inertialSensor.acceleration(axisType::xaxis), inertialSensor.acceleration(axisType::yaxis), inertialSensor.acceleration(axisType::zaxis));
+        double error = distance / wheelCircumference * 360 * 2 - (leftMotor.rotation(deg) - startDeg);
+        double speed = error*Kp; //Kp is the constant
+
+        if (speed > 112) speed = 112;
+        if (speed < -112) speed = -112;
+
+        leftMotor.spin(directionType::fwd, speed - accel.y, pct);
+        rightMotor.spin(directionType::fwd, speed - accel.y, pct);
+      }
+    }
+
+    void intake( float time, int speed ) {
+      float start = vexSystemTimeGet();
+      while (start + vexSystemTimeGet() < start + time) {
+        intakeLeft.spin(directionType::rev, speed, rpm);
+        intakeRight.spin(directionType::rev, speed, rpm);
+        lift.spin(directionType::rev, speed, rpm);
+      }
+
+      intakeLeft.stop(coast);
+      intakeRight.stop(coast);
+      lift.stop(coast);
+    }
+
+  private:
     float wheelHeight = 10.16;
     float wheelCircumference = wheelHeight * 3.14159265359;
 };
@@ -41,64 +102,6 @@ Autonomous auton = *new class Autonomous();
 void pre_auton(void) {
   vexcodeInit();
   inertialSensor.calibrate();
-}
-
-void turnDeg( int degrees, double miliseconds ) {
-  double startTime = vexSystemTimeGet(); //verified ms
-  inertialSensor.resetRotation();
-  leftMotor.resetRotation();
-  rightMotor.resetRotation();
-
-  float Kp = 0.7;
-  float leeway = 1;
-  waitUntil(!inertialSensor.isCalibrating());
-  while (vexSystemTimeGet() < startTime + miliseconds && !(
-    inertialSensor.rotation() < degrees + leeway &&
-    inertialSensor.rotation() > degrees - leeway)) {
-    
-    double error = degrees - inertialSensor.rotation(deg);
-    double difference = leftMotor.rotation(deg) + rightMotor.rotation(deg); //- = r+; + = l+ NO
-
-    //Min
-    if (error > 112) error = 112;
-    if (error < -112) error = -112;
-    //Max
-    if (error < 24 && error > 0) error = 24;
-    if (error > -24 && error < 0) error = -24;
-
-    leftMotor.spin(directionType::fwd, error * Kp - difference, rpm);
-    rightMotor.spin(directionType::rev, error * Kp + difference, rpm);
-  }
-}
-void move( int distance, double miliseconds ) {
-  double startTime = vexSystemTimeGet(); //verified ms
-  float startDeg = leftMotor.rotation(deg);
-
-  float Kp = 0.2;
-  while (vexSystemTimeGet() < startTime + miliseconds && !(leftMotor.rotation(deg) - startDeg < distance / auton.wheelCircumference * 360 * 2 + 2 && leftMotor.rotation(deg) - startDeg > distance / auton.wheelCircumference * 360* 2 - 2)) {
-    Vector3f accel = *new class Vector3f(inertialSensor.acceleration(axisType::xaxis), inertialSensor.acceleration(axisType::yaxis), inertialSensor.acceleration(axisType::zaxis));
-    //Find out wtf * means
-    double error = distance / auton.wheelCircumference * 360 * 2 - (leftMotor.rotation(deg) - startDeg);
-    double speed = error*Kp; //Kp is the constant
-
-    if (speed > 112) speed = 112;
-    if (speed < -112) speed = -112;
-
-    leftMotor.spin(directionType::fwd, speed - accel.y, pct); //Take away or plus one of the axis
-    rightMotor.spin(directionType::fwd, speed - accel.y, pct); //Take away or plus one of the axis
-  }
-}
-void intake( float time, int speed ) {
-  float start = vexSystemTimeGet();
-  while (start + vexSystemTimeGet() < start + time) {
-    intakeLeft.spin(directionType::rev, speed, rpm);
-    intakeRight.spin(directionType::rev, speed, rpm);
-    lift.spin(directionType::rev, speed, rpm);
-  }
-
-  intakeLeft.stop(coast);
-  intakeRight.stop(coast);
-  lift.stop(coast);
 }
 
 /*
@@ -113,23 +116,23 @@ void autonomous(void) {
     default:
       break;
     case 777:
-      intake(1000, auton.globalSpeed);
-      intake(5000, auton.globalSpeed);
+      auton.intake(1000, auton.globalSpeed);
+      auton.intake(5000, auton.globalSpeed);
       break;
     case 0:
-      turnDeg(180, 100000);
+      auton.turnDeg(180, 100000);
       break;
     case 1: //BLY / RLY
       //10.5s
-      intake(5000, auton.globalSpeed);
-      move(-10, 500);
-      turnDeg(90, 5000);
-      move(30, 300);
-      turnDeg(90, 5000);
-      move(110, 5000);
-      intake(5000, auton.globalSpeed);
-      turnDeg(45, 5000);
-      intake(5000, auton.globalSpeed);
+      auton.intake(5000, auton.globalSpeed);
+      auton.move(-10, 500);
+      auton.turnDeg(90, 5000);
+      auton.move(30, 300);
+      auton.turnDeg(90, 5000);
+      auton.move(110, 5000);
+      auton.intake(5000, auton.globalSpeed);
+      auton.turnDeg(45, 5000);
+      auton.intake(5000, auton.globalSpeed);
       break;
     case 2: //BLN / RLN
       /*
@@ -149,21 +152,21 @@ void autonomous(void) {
         move forward 45
         score
       */
-      move(30, 5000);
-      turnDeg(-90, 5000);
-      move(30, 5000);
-      intake(5000, auton.globalSpeed);
-      turnDeg(-45, 5000);
-      move(10, 5000);
-      intake(5000, auton.globalSpeed);
-      move(-10, 5000);
-      turnDeg(135, 5000);
-      move(60, 5000);
-      turnDeg(-90, 5000);
-      move(15, 5000);
-      turnDeg(90, 5000);
-      move(45, 5000);
-      intake(5000, auton.globalSpeed);
+      auton.move(30, 5000);
+      auton.turnDeg(-90, 5000);
+      auton.move(30, 5000);
+      auton.intake(5000, auton.globalSpeed);
+      auton.turnDeg(-45, 5000);
+      auton.move(10, 5000);
+      auton.intake(5000, auton.globalSpeed);
+      auton.move(-10, 5000);
+      auton.turnDeg(135, 5000);
+      auton.move(60, 5000);
+      auton.turnDeg(-90, 5000);
+      auton.move(15, 5000);
+      auton.turnDeg(90, 5000);
+      auton.move(45, 5000);
+      auton.intake(5000, auton.globalSpeed);
       break;
     case 3: //BRY / RRY
       /*
@@ -178,15 +181,15 @@ void autonomous(void) {
         score
       */
       //10.5s
-      intake(1500, auton.globalSpeed);
-      move(-10, 250);
-      turnDeg(-90, 1500);
-      move(30, 300);
-      turnDeg(-90, 1500);
-      move(110, 1500);
-      intake(1500, auton.globalSpeed);
-      turnDeg(-45, 500);
-      intake(1500, auton.globalSpeed);
+      auton.intake(1500, auton.globalSpeed);
+      auton.move(-10, 250);
+      auton.turnDeg(-90, 1500);
+      auton.move(30, 300);
+      auton.turnDeg(-90, 1500);
+      auton.move(110, 1500);
+      auton.intake(1500, auton.globalSpeed);
+      auton.turnDeg(-45, 500);
+      auton.intake(1500, auton.globalSpeed);
       break;
     case 4: //BRN / RRN
       /*
@@ -206,21 +209,21 @@ void autonomous(void) {
         move forward 45
         score
       */
-      move(30, 5000);
-      turnDeg(90, 5000);
-      move(30, 5000);
-      intake(5000, auton.globalSpeed);
-      turnDeg(45, 5000);
-      move(10, 5000);
-      intake(5000, auton.globalSpeed);
-      move(-10, 5000);
-      turnDeg(-135, 5000);
-      move(60, 5000);
-      turnDeg(90, 5000);
-      move(15, 5000);
-      turnDeg(-90, 5000);
-      move(45, 5000);
-      intake(5000, auton.globalSpeed);
+      auton.move(30, 5000);
+      auton.turnDeg(90, 5000);
+      auton.move(30, 5000);
+      auton.intake(5000, auton.globalSpeed);
+      auton.turnDeg(45, 5000);
+      auton.move(10, 5000);
+      auton.intake(5000, auton.globalSpeed);
+      auton.move(-10, 5000);
+      auton.turnDeg(-135, 5000);
+      auton.move(60, 5000);
+      auton.turnDeg(90, 5000);
+      auton.move(15, 5000);
+      auton.turnDeg(-90, 5000);
+      auton.move(45, 5000);
+      auton.intake(5000, auton.globalSpeed);
       break;
   }
 }
