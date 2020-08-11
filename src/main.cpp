@@ -61,13 +61,15 @@ class Autonomous {
       }
     
     }
-
     void move( int distance, double miliseconds ) {
       double startTime = vexSystemTimeGet(); //verified ms
       float startDeg = leftMotor.rotation(deg);
 
       float Kp = 0.2;
-      while (vexSystemTimeGet() < startTime + miliseconds && !(leftMotor.rotation(deg) - startDeg < distance / wheelCircumference * 360 * 2 + 2 && leftMotor.rotation(deg) - startDeg > distance / wheelCircumference * 360* 2 - 2)) {
+      while (
+        vexSystemTimeGet() < startTime + miliseconds && 
+      !(leftMotor.rotation(deg) - startDeg < distance / wheelCircumference * 360 * 2 + 2 &&
+        leftMotor.rotation(deg) - startDeg > distance / wheelCircumference * 360* 2 - 2)) {
         Vector3f accel = *new class Vector3f(inertialSensor.acceleration(axisType::xaxis), inertialSensor.acceleration(axisType::yaxis), inertialSensor.acceleration(axisType::zaxis));
         double error = distance / wheelCircumference * 360 * 2 - (leftMotor.rotation(deg) - startDeg);
         double speed = error*Kp; //Kp is the constant
@@ -79,7 +81,6 @@ class Autonomous {
         rightMotor.spin(directionType::fwd, speed - accel.y, pct);
       }
     }
-
     void intake( float time, int speed ) {
       float start = vexSystemTimeGet();
       while (start + vexSystemTimeGet() < start + time) {
@@ -101,7 +102,6 @@ Autonomous auton = *new class Autonomous();
 
 void pre_auton(void) {
   vexcodeInit();
-  inertialSensor.calibrate();
 }
 
 /*
@@ -111,6 +111,7 @@ void pre_auton(void) {
     
 */
 void autonomous(void) {
+  //inertialSensor.calibrate();
   switch (0) {
     case 999:
     default:
@@ -121,6 +122,9 @@ void autonomous(void) {
       break;
     case 0:
       auton.turnDeg(180, 100000);
+      wait(1000, msec);
+      auton.turnDeg(180, 100000);
+      wait(1000, msec);
       break;
     case 1: //BLY / RLY
       //10.5s
@@ -228,14 +232,14 @@ void autonomous(void) {
   }
 }
 
-bool moveB = false;
+bool move = false;
 void changeMove() {
-  moveB = !moveB;
+  move = !move;
 }
 
 void usercontrol(void) {
   while (true) {
-    if (!moveB) {
+    if (!move) {
       leftMotor.spin(directionType::fwd, Controller.Axis3.value() * 2, velocityUnits::rpm);
       rightMotor.spin(directionType::fwd, Controller.Axis2.value() * 2, velocityUnits::rpm);
     } else {
@@ -250,7 +254,6 @@ void usercontrol(void) {
     if (intake == 0) {
       lift.stop(hold);
     }
-    
     Controller.ButtonA.pressed(autonomous);
     Controller.ButtonY.pressed(changeMove);
 
