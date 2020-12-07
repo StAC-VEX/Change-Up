@@ -24,3 +24,6 @@
 
 #define repeat(iterations)                                                     \
   for (int iterator = 0; iterator < iterations; iterator++)
+
+#define len(arr)                                                               \
+  sizeof(arr) / sizeof(arr[0])

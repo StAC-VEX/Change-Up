@@ -1,274 +1,185 @@
 #include "vex.h"
+#include "sstream"
+#include "console.h"
+#include "auton.h"
+#include "ui.h"
+#include "vector2f.h"
 
-using namespace vex;
-
-//Base variables
-  competition Competition;
-  controller Controller;
-
-  motor leftMotor = motor(PORT10, false); //Swap ports
-  motor rightMotor = motor(PORT1, true); //This part is being retarted and not changing when I change the bool
-  motor intakeLeft = motor(PORT20, true);
-  motor intakeRight = motor(PORT11, false);
-  motor lift = motor(PORT16, true);
-
-  motor miniL = motor(PORT9, true);
-  motor miniR = motor(PORT2, false);
-
-  inertial inertialSensor = inertial(PORT21);
-//
-
-class Vector3f {
-  public:
-    float x, y, z;
-
-    Vector3f(float ax, float ay, float az) {
-      x = ax;
-      y = ay;
-      z = az;  
-    };
-};
-
-class Autonomous {
-  public:
-    float globalSpeed = 120;
-
-    void turnDeg( int degrees, double miliseconds ) {
-      double startTime = vexSystemTimeGet(); //verified ms
-      inertialSensor.resetRotation();
-      leftMotor.resetRotation();
-      rightMotor.resetRotation();
-
-      float Kp = 0.7;
-      float leeway = 1;
-      waitUntil(!inertialSensor.isCalibrating());
-      while (vexSystemTimeGet() < startTime + miliseconds && !(
-        inertialSensor.rotation() < degrees + leeway &&
-        inertialSensor.rotation() > degrees - leeway)) {
-        
-        double error = degrees - inertialSensor.rotation(deg);
-        double difference = leftMotor.rotation(deg) + rightMotor.rotation(deg); //- = r+; + = l+ NO
-
-        //Min
-        if (error > 112) error = 112;
-        if (error < -112) error = -112;
-        //Max
-        if (error < 24 && error > 0) error = 24;
-        if (error > -24 && error < 0) error = -24;
-
-        leftMotor.spin(directionType::fwd, error * Kp - difference, rpm);
-        rightMotor.spin(directionType::rev, error * Kp + difference, rpm);
-      }
-    
-    }
-    void move( int distance, double miliseconds ) {
-      double startTime = vexSystemTimeGet(); //verified ms
-      float startDeg = leftMotor.rotation(deg);
-
-      float Kp = 0.2;
-      while (
-        vexSystemTimeGet() < startTime + miliseconds && 
-      !(leftMotor.rotation(deg) - startDeg < distance / wheelCircumference * 360 * 2 + 2 &&
-        leftMotor.rotation(deg) - startDeg > distance / wheelCircumference * 360* 2 - 2)) {
-        Vector3f accel = *new class Vector3f(inertialSensor.acceleration(axisType::xaxis), inertialSensor.acceleration(axisType::yaxis), inertialSensor.acceleration(axisType::zaxis));
-        double error = distance / wheelCircumference * 360 * 2 - (leftMotor.rotation(deg) - startDeg);
-        double speed = error*Kp; //Kp is the constant
-
-        if (speed > 112) speed = 112;
-        if (speed < -112) speed = -112;
-
-        leftMotor.spin(directionType::fwd, speed - accel.y, pct);
-        rightMotor.spin(directionType::fwd, speed - accel.y, pct);
-      }
-    }
-    void intake( float time, int speed ) {
-      float start = vexSystemTimeGet();
-      while (start + vexSystemTimeGet() < start + time) {
-        intakeLeft.spin(directionType::rev, speed, rpm);
-        intakeRight.spin(directionType::rev, speed, rpm);
-        lift.spin(directionType::rev, speed, rpm);
-      }
-
-      intakeLeft.stop(coast);
-      intakeRight.stop(coast);
-      lift.stop(coast);
-    }
-
-  private:
-    float wheelHeight = 10.16;
-    float wheelCircumference = wheelHeight * 3.14159265359;
-};
-Autonomous auton = *new class Autonomous();
-
-void pre_auton(void) {
-  vexcodeInit();
-}
-
-/*
-    Instructions
-      N: Start facing away from wall next to corner tower
-      Y: Start facing mid ready to score
-    
+/**
+* This file is the starting off point of the program.
+*
+* @author Bailey Moir
 */
-void autonomous(void) {
-  //inertialSensor.calibrate();
-  switch (0) {
-    case 999:
-    default:
-      break;
-    case 777:
-      auton.intake(1000, auton.globalSpeed);
-      auton.intake(5000, auton.globalSpeed);
-      break;
-    case 0:
-      auton.turnDeg(180, 100000);
-      wait(1000, msec);
-      auton.turnDeg(180, 100000);
-      wait(1000, msec);
-      break;
-    case 1: //BLY / RLY
-      //10.5s
-      auton.intake(5000, auton.globalSpeed);
-      auton.move(-10, 500);
-      auton.turnDeg(90, 5000);
-      auton.move(30, 300);
-      auton.turnDeg(90, 5000);
-      auton.move(110, 5000);
-      auton.intake(5000, auton.globalSpeed);
-      auton.turnDeg(45, 5000);
-      auton.intake(5000, auton.globalSpeed);
-      break;
-    case 2: //BLN / RLN
-      /*
-        move forward 30cm
-        turn left 90
-        move forward 30cm
-        intake
-        turn left 45
-        move forward 10cm
-        score
-        move back 10cm
-        turn right 135
-        move forward 60cm
-        turn left 90
-        move forward 15
-        turn right 90
-        move forward 45
-        score
-      */
-      auton.move(30, 5000);
-      auton.turnDeg(-90, 5000);
-      auton.move(30, 5000);
-      auton.intake(5000, auton.globalSpeed);
-      auton.turnDeg(-45, 5000);
-      auton.move(10, 5000);
-      auton.intake(5000, auton.globalSpeed);
-      auton.move(-10, 5000);
-      auton.turnDeg(135, 5000);
-      auton.move(60, 5000);
-      auton.turnDeg(-90, 5000);
-      auton.move(15, 5000);
-      auton.turnDeg(90, 5000);
-      auton.move(45, 5000);
-      auton.intake(5000, auton.globalSpeed);
-      break;
-    case 3: //BRY / RRY
-      /*
-        score
-        move back 10cm
-        turn -90
-        move forward 30cm
-        turn -90
-        move forward 110cm
-        intake
-        turn -45
-        score
-      */
-      //10.5s
-      auton.intake(1500, auton.globalSpeed);
-      auton.move(-10, 250);
-      auton.turnDeg(-90, 1500);
-      auton.move(30, 300);
-      auton.turnDeg(-90, 1500);
-      auton.move(110, 1500);
-      auton.intake(1500, auton.globalSpeed);
-      auton.turnDeg(-45, 500);
-      auton.intake(1500, auton.globalSpeed);
-      break;
-    case 4: //BRN / RRN
-      /*
-        move forward 30cm
-        turn right 90
-        move forward 30cm
-        intake
-        turn right 45
-        move forward 10cm
-        score
-        move back 10cm
-        turn left 135
-        move forward 60cm
-        turn right 90
-        move forward 15
-        turn left 90
-        move forward 45
-        score
-      */
-      auton.move(30, 5000);
-      auton.turnDeg(90, 5000);
-      auton.move(30, 5000);
-      auton.intake(5000, auton.globalSpeed);
-      auton.turnDeg(45, 5000);
-      auton.move(10, 5000);
-      auton.intake(5000, auton.globalSpeed);
-      auton.move(-10, 5000);
-      auton.turnDeg(-135, 5000);
-      auton.move(60, 5000);
-      auton.turnDeg(90, 5000);
-      auton.move(15, 5000);
-      auton.turnDeg(-90, 5000);
-      auton.move(45, 5000);
-      auton.intake(5000, auton.globalSpeed);
-      break;
-  }
-}
 
-bool move = false;
-void changeMove() {
-  move = !move;
-}
+namespace Syntech {
+  /*
+  * 1 = left
+  * -1 = right
+  */
+  int side = 1;
+  bool mid = false;  
 
-void usercontrol(void) {
-  while (true) {
-    if (!move) {
-      leftMotor.spin(directionType::fwd, Controller.Axis3.value() * 2, velocityUnits::rpm);
-      rightMotor.spin(directionType::fwd, Controller.Axis2.value() * 2, velocityUnits::rpm);
+  /*
+  * true = arcade.
+  * false = tank.
+  */
+  bool move = false;
+  bool stick = false;
+  /*
+  * 0 = Not run, use auton configuration buttons.
+  * 1 = Auton is complete, just needs to clear screen.
+  * 2 = Cleared the screen, no more to do.
+  */
+  int autonCompletitonSteps = 0;
+
+  void autonomous(void) {
+    GameObjects::inertialSensor.calibrate();
+    waitUntil(!GameObjects::inertialSensor.isCalibrating());
+    if (mid) {
+      Auton::move(10, 1000);
+      Auton::turnDeg(45 * side, 2000);
+      Auton::move(5, 1000);
+      Auton::intake(2000, Auton::globalSpeed);
+      Auton::move(-5, 1000);
+      Auton::turnDeg(135 * side, 4000);
+      Auton::move(60.96, 8000);
+      Auton::turnDeg(-45 * side, 2000);
+      Auton::move(5, 1000);
+      Auton::intake(2000, Auton::globalSpeed);
+      Auton::move(-30, 2000);
     } else {
-      leftMotor.spin(directionType::fwd, Controller.Axis3.value() + Controller.Axis4.value(), velocityUnits::rpm);
-      rightMotor.spin(directionType::fwd, Controller.Axis3.value() - Controller.Axis4.value(), velocityUnits::rpm);
+      GameObjects::intakeLeft.spin(directionType::rev, Auton::globalSpeed, rpm);
+      GameObjects::intakeRight.spin(directionType::rev, Auton::globalSpeed, rpm);
+      Auton::move(30.345, 3000);
+      Auton::turnDeg(-45 * side, 5000);
+      Auton::move(10, 2000);
+      GameObjects::lift.spin(directionType::rev, Auton::globalSpeed, rpm);
+      wait(2000, msec);
+      Auton::move(-30, 2000);
+      GameObjects::intakeLeft.stop(coast);
+      GameObjects::intakeRight.stop(coast);
+      GameObjects::lift.stop(coast);
     }
-
-    float intake = 999 * (Controller.ButtonL1.pressing() - Controller.ButtonL2.pressing());
-    intakeLeft.spin(directionType::fwd, intake, velocityUnits::rpm);
-    intakeRight.spin(directionType::fwd, intake, velocityUnits::rpm);
-    lift.spin(directionType::fwd, intake, velocityUnits::rpm);
-    if (intake == 0) {
-      lift.stop(hold);
-    }
-    Controller.ButtonA.pressed(autonomous);
-    Controller.ButtonY.pressed(changeMove);
-
-    miniL.spin(fwd, (240  * ((int)Controller.ButtonUp.pressing() - (int)Controller.ButtonDown.pressing()) / 2 - 240 * ((int)Controller.ButtonRight.pressing() - (int)Controller.ButtonLeft.pressing()) / 4), pct);
-    miniR.spin(fwd, (240 * ((int)Controller.ButtonUp.pressing() - (int)Controller.ButtonDown.pressing()) / 2 + 240 * ((int)Controller.ButtonRight.pressing() - (int)Controller.ButtonLeft.pressing()) / 4), pct);
+    autonCompletitonSteps++;
+  }
+  
+  // Resets the controller screen, refresing the values.
+  void resetControllerScreen() {
+    GameObjects::Controller.Screen.clearScreen();
     
-    wait(20, msec);
+    // Cursor is where it prints on the screen.
+    GameObjects::Controller.Screen.setCursor(1,1);
+    GameObjects::Controller.Screen.print("Syntech:");
+
+    // Print the state of the current movement on the controller.
+    GameObjects::Controller.Screen.setCursor(2,1);
+    if (move) GameObjects::Controller.Screen.print("Movement: arcade");
+    else GameObjects::Controller.Screen.print("Movement: tank");
+    
+    // Prints teh state of if the movement is sticky on the controller.
+    GameObjects::Controller.Screen.setCursor(3,1);
+    if (stick) GameObjects::Controller.Screen.print("Sticky: true");
+    else GameObjects::Controller.Screen.print("Sticky: false");
+  }
+
+  void usercontrol() {
+    GameObjects::leftMotor.stop(coast);
+    GameObjects::rightMotor.stop(coast);
+
+    Brain.Screen.setFillColor("#0000000");     
+    // Mid Label
+    if (mid) Brain.Screen.printAt(40, 50, "Mid (l=true, r=false) : true"); 
+    else Brain.Screen.printAt(40, 50, "Mid (l=true, r=false) : false");    
+    // Mid Buttons
+    UI::Button mid_true_button = UI::Button("#00ff00", Vector2f(40, 55), Vector2f::square(50), []{ mid = true; });
+    UI::Button mid_false_button = UI::Button("#ff0000", Vector2f(90, 55), Vector2f::square(50), []{ mid = false; });
+    
+    // Side Label
+    if (side == 1) Brain.Screen.printAt(40, 115, "Side : left");
+    else Brain.Screen.printAt(40, 115, "Side : right");
+    // Side Buttons
+    UI::Button side_left_button = UI::Button("#000000", Vector2f(40, 120), Vector2f::square(50), []{ side = 1; });
+    UI::Button side_right_button = UI::Button("#ffffff", Vector2f(90, 120), Vector2f::square(50), []{ side = -1; });
+    
+    resetControllerScreen();
+
+    while (true) {
+      Vector2f mousePos = Vector2f(Brain.Screen.xPosition(), Brain.Screen.yPosition());
+
+      // If the autonmous is run, don't check button presses and clear screen.
+      if (autonCompletitonSteps == 0) {
+        // Runs functions of buttons through callbacks and clears the console if
+        // one of them is true so that the labels refresh.
+        if (UI::pollButtons(&mousePos)) {
+          Console::reset();
+
+          Brain.Screen.setFillColor("#0000000");
+          // Mid Label
+          if (mid) Brain.Screen.printAt(40, 50, "Mid (l=true, r=false) : true"); 
+          else Brain.Screen.printAt(40, 50, "Mid (l=true, r=false) : false");
+          // Mid Buttons
+          mid_true_button.render();
+
+          // Side Label
+          if (side == 1) Brain.Screen.printAt(40, 115, "Side : left"); 
+          else Brain.Screen.printAt(40, 115, "Side : right");
+
+          // Side Buttons
+          side_left_button.render();
+          side_right_button.render();
+        }
+      } else if (autonCompletitonSteps == 1) {
+        Console::reset();
+        autonCompletitonSteps++;
+      }
+
+      // The difference between how fast the motors should  be going and the input.
+      float diffL = (GameObjects::leftMotor.velocity(rpm) - GameObjects::Controller.Axis3.value()) * .12; // /.12 = / 60 / 360
+      float diffR = (GameObjects::rightMotor.velocity(rpm) - GameObjects::Controller.Axis2.value()) * .12;
+      
+      if(!stick) {
+        if(GameObjects::Controller.Axis3.value() == 0) diffL = 0;
+        if(GameObjects::Controller.Axis2.value() == 0) diffR = 0;
+      }
+      
+      if (!move) { // Tank
+        GameObjects::leftMotor.spin(directionType::fwd, (GameObjects::Controller.Axis3.value() - diffL) * 2, velocityUnits::rpm);
+        GameObjects::rightMotor.spin(directionType::fwd, (GameObjects::Controller.Axis2.value() - diffR) * 2, velocityUnits::rpm);
+      } else { // Arcade
+        GameObjects::leftMotor.spin(directionType::fwd, GameObjects::Controller.Axis3.value() + GameObjects::Controller.Axis4.value(), velocityUnits::rpm);
+        GameObjects::rightMotor.spin(directionType::fwd, GameObjects::Controller.Axis3.value() - GameObjects::Controller.Axis4.value(), velocityUnits::rpm);
+      }
+
+      float intake = 999 * (GameObjects::Controller.ButtonL1.pressing() - GameObjects::Controller.ButtonL2.pressing());
+      GameObjects::intakeLeft.spin(directionType::fwd, intake, velocityUnits::rpm);
+      GameObjects::intakeRight.spin(directionType::fwd, intake, velocityUnits::rpm);
+      GameObjects::lift.spin(directionType::fwd, intake, velocityUnits::rpm);
+      // Holds the lift
+      if (intake == 0) {
+        GameObjects::lift.stop(hold);
+      }
+
+      GameObjects::Controller.ButtonX.pressed([]{ // Change stick
+        stick = !stick; 
+        resetControllerScreen();
+      });
+      GameObjects::Controller.ButtonY.pressed([]{ // Change move
+        move = !move;
+        resetControllerScreen();
+      });
+
+      wait(20, msec);
+    }    
   }
 }
 
 int main() {
-  Competition.autonomous(autonomous);
-  Competition.drivercontrol(usercontrol);
+  vexcodeInit();
+    
+  Syntech::Console::reset(); // Inits console.
 
-  pre_auton();
+  Syntech::GameObjects::Competition.autonomous(Syntech::autonomous);
+  Syntech::GameObjects::Competition.drivercontrol(Syntech::usercontrol);
 
   while (true) {
     wait(100, msec);
